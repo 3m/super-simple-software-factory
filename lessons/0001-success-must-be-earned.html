@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — Success Must Be Earned</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">SSSF · Lesson 01</p>
+<h1>Success Must Be Earned</h1>
+<p class="subtitle">The phase primitive, and the one line of Python that makes agent runs repeatable.</p>
+
+<p>Mission item you are attacking today: <em>"Explain, without notes, why a phase defaults to <code>fail</code> and what flips it."</em> Everything else in SSSF sits on top of this.</p>
+
+<h2>The problem this solves</h2>
+
+<p>An agent will tell you it succeeded. It will say so in prose, confidently, whether or not it did. If your workflow treats "the agent finished talking" as "the step passed," your pipeline is a random number generator with good manners.</p>
+
+<p>SSSF's answer: the agent never decides. Deterministic Python owns sequencing, retries, and acceptance; agents are bounded nodes inside that graph. The repo's phrase for it is <strong>agent proposes, code disposes</strong>.<span class="cite"><a href="../.claude/skills/sssf/cookbooks/sssf_overview.md">overview</a></span></p>
+
+<h2>One primitive, three lanes</h2>
+
+<p>Every ADW run is a sequence of <strong>phases</strong>. There is exactly one way to open one:</p>
+
+<pre><code>with run.phase(PhaseParams(...)) as ph:
+    ...</code></pre>
+
+<p>Three kinds, and the kind is just a label saying who owns the work:</p>
+
+<table>
+<tr><th>Kind</th><th>Owner</th><th>What happens inside</th></tr>
+<tr><td><code>engineer</code></td><td>the human</td><td><code>ph.log(input=...)</code> — capture the ask</td></tr>
+<tr><td><code>agent</code></td><td>an agent name</td><td><code>ph.call(AgentCall(...))</code> — prompt in, typed envelope out, gates verified</td></tr>
+<tr><td><code>code</code></td><td><code>git</code>, etc.</td><td>deterministic steps: branch, commit, migrate</td></tr>
+</table>
+
+<p>The rule that keeps traces honest: a <code>code</code> step never hides inside an <code>agent</code> phase. If git committed, there is a phase that says so.</p>
+
+<h2>The mechanic</h2>
+
+<p>Open <code>adws/adw_modules/runner.py</code> and read <code>Run.phase</code>. It is a context manager, and the whole design is in its <code>try/except/else</code>:</p>
+
+<pre><code>try:
+    yield PhaseHandle(self, phase)
+except BaseException as error:
+    phase.status = "fail"          # success must be earned
+    ...
+    raise
+else:
+    phase.status = "success"</code></pre>
+
+<p>Note where the statuses come from. <code>Phase.status</code> is declared <code>"fail"</code> at construction in <code>data_types.py</code>, before the body ever runs. Nothing inside the <code>with</code> block can announce success. The only thing that flips it is <strong>exiting the block cleanly</strong> — reaching the end without raising.</p>
+
+<p>So the contract inverts the usual one. You do not report failure. You fail to report success.</p>
+
+<div class="callout">
+<p><strong>Agent phases carry two extra conditions.</strong> A clean exit is necessary but not sufficient. Inside <code>ph.call</code>, the agent's final JSON must parse against the declared output type, and every gate must come back green. Either one failing raises — which lands you in the <code>except</code> branch, which is already <code>fail</code>. <code>retries=N</code> buys extra gate-correction rounds through the same session before that raise.</p>
+</div>
+
+<h3>Phase success is not run success</h3>
+
+<p>These are different questions, deliberately. <code>Run.finish()</code> takes two criteria:</p>
+
+<pre><code>phases_ok = bool(self.phases) and all(p.status == "success" for p in self.phases)
+ok = phases_ok and accepted</code></pre>
+
+<p>A test phase that ran the suite <em>did its job</em> even when the suite came back red. The phase succeeded. The run must not. The docstring in <code>runner.py</code> records a real bug from before this split existed: runs were written green to the db and the terminal while exiting <code>1</code>, so every human reading the trace saw success and only CI saw the truth.</p>
+
+<h2>Retrieval</h2>
+
+<p>Answer from memory before scrolling to check. Getting these wrong is how they stick.</p>
+
+<div class="quiz" data-answer="2">
+<p class="q">1. A code phase runs <code>git commit</code>, which exits non-zero and raises. What is the recorded phase status?</p>
+<button data-fb="Nothing sets success on the exception path; the initial value stands.">Success, since git ran</button>
+<button data-fb="There is no such status. Phase statuses are queued, running, success, fail.">Recorded as partial pass</button>
+<button data-fb="Constructed as fail, and the except branch leaves it there, then re-raises.">Failure, its default value</button>
+<button data-fb="No retry happens here. Only agent phases take a retries count.">Retried until it passes</button>
+</div>
+
+<div class="quiz" data-answer="1">
+<p class="q">2. An agent phase exits cleanly, envelope parses, one gate reports red. Status?</p>
+<button data-fb="A clean exit only counts when the gates were green too.">Success, the code exited</button>
+<button data-fb="A red gate raises inside ph.call, so the block never exits cleanly.">Failure, a gate went red</button>
+<button data-fb="Envelope parsing is a separate condition, and here it passed.">Failure, bad envelope JSON</button>
+<button data-fb="Gate results are recorded in the trace, green or red. Nothing is skipped.">Success, gates are advisory</button>
+</div>
+
+<div class="quiz" data-answer="3">
+<p class="q">3. Every phase succeeded, but the test suite the test phase ran came back red. Exit code?</p>
+<button data-fb="finish() takes two criteria. All phases green is only the first one.">Zero, all phases were green</button>
+<button data-fb="Phase status is not touched by finish(). The phase genuinely did its job.">One, the test phase failed</button>
+<button data-fb="The db is written by the same finish() call that sets the exit code, on purpose.">Zero, db shows it green</button>
+<button data-fb="phases_ok was true, accepted was false, so ok is false and finish returns 1.">One, acceptance was false</button>
+</div>
+
+<h3>Free recall</h3>
+<div class="recall-box">
+<p>In two sentences: why does <code>Phase.status</code> default to <code>fail</code> rather than being set to <code>fail</code> when something goes wrong?</p>
+<textarea class="recall" placeholder="Type from memory..."></textarea>
+<button class="reveal">Show model answer</button>
+<div class="model callout" hidden>
+<p>Because setting failure on error assumes you can enumerate every way a step can go wrong, and you cannot — a crash, a timeout, or a kill leaves the status wherever it was. Defaulting to <code>fail</code> means any path that does not reach a clean exit is recorded as failure, so an unhandled case degrades to honest instead of to a false green.</p>
+</div>
+</div>
+
+<h2>Do this next</h2>
+
+<ol>
+<li>Read <code>.claude/skills/sssf/templates/adws/adw_prompt.py</code> end to end. It is 44 lines and contains exactly two phases. Name the kind and owner of each.</li>
+<li>Read <code>Run.phase</code> in <code>adw_modules/runner.py</code>. Find every line that writes to the tracer and note that the failure path writes <em>more</em> events than the success path.</li>
+</ol>
+
+<p><strong>Primary source:</strong> <a href="../README.md">this repo's README</a> — the author's own narrative on why the control plane moves into Python. Read the phase and gate sections. Secondary: <a href="https://youtu.be/haUfb1ievTE">IndyDevDan's walkthrough video</a> for design intent.</p>
+
+<footer>
+<p>Reference: <a href="../reference/phase-model.html">Phase Model cheat sheet</a> · <a href="../RESOURCES.md">Resources</a> · <a href="../MISSION.md">Mission</a></p>
+<p><strong>Stuck on anything here?</strong> Ask your agent. That is what it is for — request a worked example, a deeper trace of one function, or a harder quiz on the same material.</p>
+<p>Next lesson will cover the envelope: how a phase's output becomes the next phase's input, and why bad JSON is never a restart.</p>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

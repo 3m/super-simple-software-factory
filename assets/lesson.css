@@ -1,0 +1,136 @@
+/* SSSF teaching workspace — shared stylesheet.
+   Every lesson and reference document links this. Tufte-ish: one text column,
+   generous measure, restrained rules, no decoration that does not carry meaning. */
+
+:root {
+  --ink: #1a1a18;
+  --ink-soft: #55534d;
+  --paper: #fffef9;
+  --rule: #d8d4c8;
+  --accent: #7a2e1e;
+  --ok: #1f6b3a;
+  --bad: #a3241a;
+  --code-bg: #f3f0e7;
+  --measure: 38rem;
+}
+
+html { font-size: 17px; }
+
+body {
+  margin: 0 auto;
+  padding: 4rem 2rem 8rem;
+  max-width: var(--measure);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 2.1rem; margin: 0 0 0.2rem; }
+h2 { font-size: 1.35rem; margin: 3rem 0 0.6rem; }
+h3 { font-size: 1.05rem; margin: 2rem 0 0.4rem; }
+
+.kicker {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 1.6rem;
+}
+
+.subtitle { color: var(--ink-soft); font-style: italic; margin: 0 0 2.5rem; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+code, pre, .mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+}
+code { background: var(--code-bg); padding: 0.1em 0.32em; border-radius: 3px; }
+pre {
+  background: var(--code-bg);
+  border-left: 2px solid var(--rule);
+  padding: 0.9rem 1.1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+pre code { background: none; padding: 0; }
+
+/* Marginal, numbered citation. Inline on narrow screens. */
+.cite { font-size: 0.8rem; color: var(--ink-soft); }
+.cite a { color: var(--ink-soft); }
+
+blockquote {
+  margin: 1.6rem 0;
+  padding: 0.2rem 0 0.2rem 1.1rem;
+  border-left: 3px solid var(--accent);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin: 1.4rem 0; }
+th, td { text-align: left; padding: 0.45rem 0.7rem 0.45rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); font-weight: 600; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 3rem 0; }
+
+.callout {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  padding: 1rem 1.2rem;
+  margin: 1.8rem 0;
+}
+.callout p:first-child { margin-top: 0; }
+.callout p:last-child { margin-bottom: 0; }
+
+/* ── Quiz component (assets/quiz.js) ───────────────────────────────── */
+.quiz { margin: 1.6rem 0 2.4rem; }
+.quiz .q { font-weight: 600; margin-bottom: 0.7rem; }
+.quiz button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.95rem;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 0.55rem 0.8rem;
+  margin: 0.35rem 0;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.quiz button:hover:not([disabled]) { background: var(--code-bg); }
+.quiz button.correct { border-color: var(--ok); background: #eaf5ee; }
+.quiz button.wrong { border-color: var(--bad); background: #fbeceb; }
+.quiz button[disabled] { cursor: default; }
+.quiz .fb { font-size: 0.9rem; color: var(--ink-soft); margin-top: 0.6rem; min-height: 1.2em; }
+.quiz .fb.shown { border-left: 2px solid var(--rule); padding-left: 0.7rem; }
+.recall {
+  width: 100%;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  min-height: 5rem;
+  box-sizing: border-box;
+}
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+footer a { color: var(--ink-soft); }
+
+@media print {
+  body { padding: 0; max-width: none; font-size: 11pt; }
+  .quiz button { break-inside: avoid; }
+  a { text-decoration: none; color: var(--ink); }
+}

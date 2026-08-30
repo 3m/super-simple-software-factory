@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — SSSF Phase Model</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<p class="kicker">SSSF · Reference</p>
+<h1>Phase Model</h1>
+<p class="subtitle">The phase primitive, its statuses, and the success rules. Print this.</p>
+
+<h2>The primitive</h2>
+<pre><code>with run.phase(PhaseParams(
+        name="build",              # short, unique within the run
+        kind="agent",              # engineer | agent | code
+        owner="builder",           # human name, "git", or agent from config
+        description="...",         # REQUIRED, must not echo the name
+        retries=1,                 # agent phases only: gate-correction rounds
+)) as ph:
+    ph.log(input=prompt)           # engineer phases
+    env = ph.call(AgentCall(...))  # agent phases only</code></pre>
+
+<h2>Statuses</h2>
+<table>
+<tr><th>Status</th><th>Set when</th></tr>
+<tr><td><code>queued</code></td><td>declared but not started</td></tr>
+<tr><td><code>running</code></td><td>at phase open, before the body runs</td></tr>
+<tr><td><code>success</code></td><td>the <code>with</code> block exits without raising</td></tr>
+<tr><td><code>fail</code></td><td><strong>the default</strong>, and left in place by any raise</td></tr>
+</table>
+
+<h2>Success rules</h2>
+<ul>
+<li><strong>All phases:</strong> clean exit from the <code>with</code> block.</li>
+<li><strong>Agent phases, additionally:</strong> final JSON parses against <code>output_type</code>, and every gate green.</li>
+<li><strong>The run:</strong> <code>phases_ok AND accepted</code>. Both, via one <code>run.finish(accepted=..., reason=...)</code> call that settles db status, banner, and exit code together.</li>
+<li>Exit code is <code>0</code> when <code>ok</code>, else <code>1</code>.</li>
+</ul>
+
+<h2>Phase kinds</h2>
+<table>
+<tr><th>Kind</th><th>Lane</th><th>Body</th></tr>
+<tr><td><code>engineer</code></td><td>human</td><td><code>ph.log()</code>; an <code>input=</code> payload also records the session request</td></tr>
+<tr><td><code>agent</code></td><td>agent</td><td><code>ph.call()</code>; anything else raises <code>RuntimeError</code></td></tr>
+<tr><td><code>code</code></td><td>deterministic</td><td>plain Python: git, migrations, file moves</td></tr>
+</table>
+
+<p class="cite">Rule: a code step never hides inside an agent phase. If it happened, it has a phase.</p>
+
+<h2>Gotchas</h2>
+<ul>
+<li><code>description</code> is validated at construction. Blank, or a restatement of <code>name</code>, raises before the phase opens.</li>
+<li>More than four parameters to a function means pass one object instead. <code>PhaseParams</code> and <code>AgentCall</code> are the pattern.</li>
+<li>A joined run (<code>--adw-id</code>) continues the phase sequence rather than restarting at 1.</li>
+<li>Phase success ≠ run success. A test phase that ran a red suite is a successful phase.</li>
+</ul>
+
+<h2>Source of truth</h2>
+<table>
+<tr><th>Thing</th><th>File</th></tr>
+<tr><td>phase context manager, <code>finish()</code></td><td><code>adw_modules/runner.py</code></td></tr>
+<tr><td><code>PhaseParams</code>, <code>Phase</code>, envelopes</td><td><code>adw_modules/data_types.py</code></td></tr>
+<tr><td>gate functions</td><td><code>adw_modules/gates.py</code></td></tr>
+<tr><td>smallest working example</td><td><code>adws/adw_prompt.py</code></td></tr>
+</table>
+
+<footer>
+<p>From <a href="../lessons/0001-success-must-be-earned.html">Lesson 1 — Success Must Be Earned</a>.</p>
+</footer>
+</body>
+</html>
